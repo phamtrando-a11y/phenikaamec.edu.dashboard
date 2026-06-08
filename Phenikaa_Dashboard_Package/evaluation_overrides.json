@@ -1,0 +1,62 @@
+{
+  "months_5.0": {
+    "Khoa Dược": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": ""
+    },
+    "Khoa Giải phẫu bệnh - Tế bào học": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": "Do đi dạy ở trường đợt đầu tháng nên bị hoãn 1 tuần so với kế hoạch ban đầu"
+    },
+    "Đơn nguyên HSCC Nhi": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": "1 buổi SHCM sáng ngày 30/5 nên chưa cập nhật"
+    },
+    "Khoa Nội tổng hợp": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": "Khoa chưa cập nhật đủ link"
+    },
+    "Trung tâm Hồi sức cấp cứu": {
+      "Đạt chỉ tiêu": "Không đạt",
+      "Ghi chú": "SHCM với Bạch Mai nhưng cần có post test và tự đánh giá sau đào tạo"
+    },
+    "Trung tâm Tiêu hóa": {
+      "Đạt chỉ tiêu": "Không đạt",
+      "Ghi chú": "Đông bệnh nhân nên lịch bị lùi 1 tuần so với kế hoạch ban đầu"
+    }
+  },
+  "date_(datetime.date(2026, 6, 1), datetime.date(2026, 6, 5))": {
+    "Khoa Dược": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": ""
+    },
+    "Khoa Giải phẫu bệnh - Tế bào học": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": ""
+    },
+    "Khoa Hoá sinh- Huyết học": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": ""
+    },
+    "Khoa Ngoại Tổng hợp": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": ""
+    },
+    "Khoa Nhi": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": ""
+    },
+    "Khoa Sơ sinh": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": ""
+    },
+    "TT Chẩn đoán hình ảnh và Thăm dò chức năng": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": ""
+    },
+    "Trung tâm Hồi sức cấp cứu": {
+      "Đạt chỉ tiêu": "Đạt",
+      "Ghi chú": ""
+    }
+  }
+}

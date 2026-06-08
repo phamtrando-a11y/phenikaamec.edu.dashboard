@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Báo Cáo CME & SHCM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+    <!-- Choices.js CSS & JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar Menu -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>📊 Phenikaa CME</h2>
+            </div>
+            <nav class="sidebar-nav">
+                <button class="nav-btn active" onclick="switchPage('page-overview')">
+                    <span class="icon">📈</span> Tổng quan
+                </button>
+                <button class="nav-btn" onclick="switchPage('page-department')">
+                    <span class="icon">🏥</span> Hoạt động khoa phòng
+                </button>
+                <button class="nav-btn" onclick="switchPage('page-training')">
+                    <span class="icon">👩‍🎓</span> Hoạt động đào tạo
+                </button>
+            </nav>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="top-header">
+                <h1 id="page-title">Tổng quan</h1>
+                <p>Trực quan hóa dữ liệu điểm danh và cấp CME</p>
+            </header>
+
+            <!-- Global Filters (Visible depending on page) -->
+            <section class="controls" id="global-controls">
+                <div class="filter-group-wrapper" id="filter-wrapper">
+                    <div class="filter-group" id="filter-year-col">
+                        <label for="yearSelect">Năm:</label>
+                        <select id="yearSelect" multiple></select>
+                    </div>
+                    <div class="filter-group" id="filter-month-col">
+                        <label for="monthSelect">Tháng:</label>
+                        <select id="monthSelect" multiple></select>
+                    </div>
+                    <div class="filter-group" id="filter-unit-col">
+                        <label for="unitSelect">🏥 Đơn Vị:</label>
+                        <select id="unitSelect" multiple></select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Page 1: Tổng quan -->
+            <div id="page-overview" class="page-section active">
+                <div class="kpi-grid kpi-grid-3">
+                    <div class="kpi-card">
+                        <h3>TỔNG SỐ HOẠT ĐỘNG</h3>
+                        <div class="kpi-value" id="kpi-total-activities">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>TỔNG SỐ HỌC VIÊN THAM GIA</h3>
+                        <div class="kpi-value" id="kpi-total-participants">0</div>
+                    </div>
+                    <div class="kpi-card">
+                        <h3>TỔNG SỐ HỌC VIÊN ĐẠT</h3>
+                        <div class="kpi-value" id="kpi-total-passed">0</div>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h2 style="text-align: center; font-size: 1.2rem; margin-bottom:10px;">Tỷ lệ Đạt / Không đạt</h2>
+                        <div id="chartPie"></div>
+                    </div>
+                    <div class="chart-container">
+                        <h2 style="text-align: center; font-size: 1.2rem; margin-bottom:10px;">Top 10 chương trình có nhiều học viên</h2>
+                        <div id="chartProgram"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Page 2: Hoạt động khoa phòng -->
+            <div id="page-department" class="page-section" style="display:none;">
+                <section class="data-table">
+                    <h2>📋 Danh sách nội dung đã tổ chức</h2>
+                    <div class="table-wrapper">
+                        <table id="departmentTable">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Nội dung/Chương trình</th>
+                                    <th>Thời gian</th>
+                                    <th>Người phụ trách</th>
+                                    <th>Tham gia</th>
+                                    <th>Đạt</th>
+                                    <th title="Điểm danh & Post test">Điểm danh</th>
+                                    <th title="Bảng kiểm đào tạo">Bảng kiểm</th>
+                                    <th title="Bài báo cáo">Báo cáo</th>
+                                    <th title="Video đào tạo">Video</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Page 3: Hoạt động đào tạo -->
+            <div id="page-training" class="page-section" style="display:none;">
+                <section class="data-table">
+                    <h2>👩‍🎓 Danh sách học viên</h2>
+                    <div class="table-wrapper">
+                        <table id="trainingTable">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Họ và Tên</th>
+                                    <th>Mã NV</th>
+                                    <th>Đơn vị</th>
+                                    <th>Số buổi tham gia</th>
+                                    <th>Số buổi Đạt</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Student Detail Modal -->
+    <div id="studentModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h2 id="modal-student-name">Tên học viên</h2>
+            <p id="modal-student-unit" style="color: #666; margin-bottom: 20px;">Đơn vị</p>
+            <div class="table-wrapper">
+                <table id="modalTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Tên chương trình</th>
+                            <th>Ngày</th>
+                            <th>Điểm số</th>
+                            <th>Trạng thái</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+streamlit==1.36.0
+pandas>=2.0.0
+plotly>=5.18.0
+openpyxl>=3.1.2
+dataframe-image>=0.2.2
+requests>=2.31.0
+PyGithub>=2.3.0
+lxml>=4.9.3
