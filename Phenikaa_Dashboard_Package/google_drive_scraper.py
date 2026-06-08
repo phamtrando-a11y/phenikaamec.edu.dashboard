@@ -30,15 +30,22 @@ def get_urls_from_cell(val, drive_service=None):
         return []
     val_str = str(val).strip()
     urls = re.findall(r'https?://[^\s,;"\'\)]+', val_str)
-    if not urls and drive_service and val_str.lower().endswith('.xlsx'):
-        try:
-            query = f"name='{val_str}' and trashed=false"
-            results = drive_service.files().list(q=query, fields="files(id, name)").execute()
-            items = results.get('files', [])
-            if items:
-                urls = [f"https://docs.google.com/spreadsheets/d/{items[0]['id']}/edit"]
-        except:
-            pass
+    if not urls and drive_service and len(val_str) > 15:
+        if val_str.lower() not in ['không có', 'chưa có', 'không', 'chưa', 'nan', 'none']:
+            try:
+                val_base = val_str
+                if val_base.lower().endswith('.xlsx'):
+                    val_base = val_base[:-5]
+                elif val_base.lower().endswith('.csv'):
+                    val_base = val_base[:-4]
+                
+                query = f"(name='{val_base}' or name='{val_base}.xlsx' or name='{val_base}.csv' or name='{val_str}') and trashed=false"
+                results = drive_service.files().list(q=query, fields="files(id, name)").execute()
+                items = results.get('files', [])
+                if items:
+                    urls = [f"https://docs.google.com/spreadsheets/d/{items[0]['id']}/edit"]
+            except:
+                pass
     return urls
 
 def get_download_url(url):
