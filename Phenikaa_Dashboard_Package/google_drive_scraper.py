@@ -300,11 +300,97 @@ def run_scraper(creds_json, reg_folder_id, main_excel_id):
         except Exception as e:
             print(f"Lỗi: {e}")
 
-    df_students = pd.DataFrame(student_records)
-    
     print("\n--- BƯỚC 3: CẬP NHẬT FILE CHÍNH ---")
     main_file_stream.seek(0)
     wb = openpyxl.load_workbook(main_file_stream, data_only=False)
+    
+    import datetime
+    print("--- BƯỚC 2.5: BÓC TÁCH LINK TỪ FILE CHÍNH ---")
+    ws_main = wb["SHCM - Độ"] if "SHCM - Độ" in wb.sheetnames else wb.worksheets[0]
+    
+    prog_col_idx = -1
+    link_col_idx = -1
+    unit_col_idx = -1
+    day_col_idx, month_col_idx, year_col_idx = -1, -1, -1
+    date_col_idx = -1
+    
+    for i, cell in enumerate(ws_main[1]):
+        if not cell.value: continue
+        val = normalize_text_std(cell.value)
+        if 'nội dung' in val or 'chương trình' in val: prog_col_idx = i + 1
+        elif 'gắn link' in val and 'post test' in val: link_col_idx = i + 1
+        elif 'đơn vị' in val: unit_col_idx = i + 1
+        elif val == 'ngày': day_col_idx = i + 1
+        elif val == 'tháng': month_col_idx = i + 1
+        elif val == 'năm': year_col_idx = i + 1
+        elif 'ngày cụ thể' in val: date_col_idx = i + 1
+            
+    if prog_col_idx != -1 and link_col_idx != -1:
+        for row_idx in range(2, ws_main.max_row + 1):
+            prog_name = ws_main.cell(row=row_idx, column=prog_col_idx).value
+            if not prog_name: continue
+            
+            link_cell = ws_main.cell(row=row_idx, column=link_col_idx)
+            urls = []
+            if link_cell.hyperlink and link_cell.hyperlink.target:
+                urls = get_urls_from_cell(link_cell.hyperlink.target)
+            elif link_cell.value and 'http' in str(link_cell.value):
+                urls = get_urls_from_cell(link_cell.value)
+                
+            if not urls: continue
+            url = urls[-1]
+            if url in link_cache: df_dl = link_cache[url].copy()
+            else:
+                dl_url, url_type = get_download_url(url)
+                if dl_url:
+                    try:
+                        resp = requests.get(dl_url, timeout=20)
+                        if resp.status_code == 200:
+                            df_dl = pd.read_excel(io.BytesIO(resp.content))
+                            link_cache[url] = df_dl
+                        else: continue
+                    except: continue
+                else: continue
+                
+            df_dl = find_header_and_data(df_dl)
+            col_map = map_columns(df_dl)
+            
+            unit = ws_main.cell(row=row_idx, column=unit_col_idx).value if unit_col_idx != -1 else ''
+            day, month, year = np.nan, np.nan, 2026
+            
+            if date_col_idx != -1:
+                date_val = ws_main.cell(row=row_idx, column=date_col_idx).value
+                if isinstance(date_val, datetime.datetime):
+                    day, month, year = date_val.day, date_val.month, date_val.year
+            else:
+                try:
+                    day = ws_main.cell(row=row_idx, column=day_col_idx).value if day_col_idx != -1 else np.nan
+                    month = ws_main.cell(row=row_idx, column=month_col_idx).value if month_col_idx != -1 else np.nan
+                    year = ws_main.cell(row=row_idx, column=year_col_idx).value if year_col_idx != -1 else 2026
+                except: pass
+                
+            for i_dl, r_dl in df_dl.iterrows():
+                hv_name = r_dl[col_map['name_col']] if col_map['name_col'] else np.nan
+                hv_id = r_dl[col_map['id_col']] if col_map['id_col'] else np.nan
+                score = r_dl[col_map['score_col']] if col_map['score_col'] else np.nan
+                email = r_dl[col_map['email_col']] if col_map['email_col'] else np.nan
+                
+                if pd.isna(hv_name) and pd.isna(hv_id) and pd.isna(email): continue
+                    
+                student_records.append({
+                    'Gốc': str(hv_name) if pd.notna(hv_name) else None,
+                    'Họ và tên': str(hv_name) if pd.notna(hv_name) else None,
+                    'Mã nhân sự': str(hv_id) if pd.notna(hv_id) else None,
+                    'Điểm số': str(score) if pd.notna(score) else None,
+                    'Địa chỉ email': str(email) if pd.notna(email) else None,
+                    'Đơn vị đào tạo': str(unit) if unit else '',
+                    'Ngày': day,
+                    'Tháng': month,
+                    'Năm': year,
+                    'Tên chương trình': str(prog_name)
+                })
+
+    df_students = pd.DataFrame(student_records)
     
     if 'Dữ liệu học viên' in wb.sheetnames:
         del wb['Dữ liệu học viên']
