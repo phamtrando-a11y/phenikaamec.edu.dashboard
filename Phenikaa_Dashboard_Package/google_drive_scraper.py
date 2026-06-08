@@ -25,11 +25,21 @@ def clean_program_name(name):
     name = re.sub(r'[^a-z0-9]', '', name)
     return name
 
-def get_urls_from_cell(val):
+def get_urls_from_cell(val, drive_service=None):
     if pd.isna(val):
         return []
     val_str = str(val).strip()
-    return re.findall(r'https?://[^\s,;"\'\)]+', val_str)
+    urls = re.findall(r'https?://[^\s,;"\'\)]+', val_str)
+    if not urls and drive_service and val_str.lower().endswith('.xlsx'):
+        try:
+            query = f"name='{val_str}' and trashed=false"
+            results = drive_service.files().list(q=query, fields="files(id, name)").execute()
+            items = results.get('files', [])
+            if items:
+                urls = [f"https://docs.google.com/spreadsheets/d/{items[0]['id']}/edit"]
+        except:
+            pass
+    return urls
 
 def get_download_url(url):
     sheet_match = re.search(r'/spreadsheets/d/([a-zA-Z0-9-_]+)', url)
@@ -238,14 +248,14 @@ def run_scraper(creds_json, reg_folder_id, main_excel_id):
                         
                     # Lấy link và bóc dữ liệu học viên
                     link_val = row.get(link_col) if link_col else (row.iloc[21] if len(row) > 21 else None)
-                    urls = get_urls_from_cell(link_val)
+                    urls = get_urls_from_cell(link_val, drive_service)
                     
                     if not urls and ws_op is not None and link_col_idx_op != -1:
                         excel_row = idx + header_idx + 2
                         try:
                             cell_op = ws_op.cell(row=excel_row, column=link_col_idx_op)
                             if cell_op.hyperlink and cell_op.hyperlink.target:
-                                urls = get_urls_from_cell(cell_op.hyperlink.target)
+                                urls = get_urls_from_cell(cell_op.hyperlink.target, drive_service)
                         except: pass
                         
                     if not urls: continue
@@ -333,9 +343,9 @@ def run_scraper(creds_json, reg_folder_id, main_excel_id):
             link_cell = ws_main.cell(row=row_idx, column=link_col_idx)
             urls = []
             if link_cell.hyperlink and link_cell.hyperlink.target:
-                urls = get_urls_from_cell(link_cell.hyperlink.target)
-            elif link_cell.value and 'http' in str(link_cell.value):
-                urls = get_urls_from_cell(link_cell.value)
+                urls = get_urls_from_cell(link_cell.hyperlink.target, drive_service)
+            elif link_cell.value:
+                urls = get_urls_from_cell(link_cell.value, drive_service)
                 
             if not urls: continue
             url = urls[-1]
