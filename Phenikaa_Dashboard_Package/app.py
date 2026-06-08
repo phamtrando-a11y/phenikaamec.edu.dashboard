@@ -213,6 +213,17 @@ def load_data():
         
     df_students['Trạng thái'] = df_students['Điểm số'].apply(lambda x: 'Đạt' if is_passed(x) else ('Không đạt' if not pd.isna(x) else ''))
     
+    if not df_students.empty and not df_sessions.empty:
+        for idx, row in df_sessions.iterrows():
+            session_name = row.get('NỘI DUNG/CHƯƠNG TRÌNH')
+            if pd.notna(session_name):
+                session_name_str = str(session_name).strip().lower()
+                students_of_session = df_students[df_students['Tên chương trình'].astype(str).str.strip().str.lower() == session_name_str]
+                if len(students_of_session) > 0:
+                    df_sessions.at[idx, 'Số học viên tham gia'] = len(students_of_session)
+                    passed_count = len(students_of_session[students_of_session['Trạng thái'] == 'Đạt'])
+                    df_sessions.at[idx, 'Số Học viên đạt'] = passed_count
+    
     if 'Họ và tên' in df_students.columns and 'Gốc' in df_students.columns:
         df_students['Họ Tên Đầy Đủ'] = df_students['Họ và tên'].fillna(df_students['Gốc'])
     else:
