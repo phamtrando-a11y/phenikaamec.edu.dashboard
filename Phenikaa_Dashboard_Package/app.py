@@ -452,19 +452,28 @@ elif page == "Hoạt động khoa phòng":
         df_dept["Tham gia"] = pd.to_numeric(df_dept["Tham gia"], errors='coerce').apply(lambda x: f"{int(x)}" if pd.notna(x) else "")
         df_dept["Đạt"] = pd.to_numeric(df_dept["Đạt"], errors='coerce').apply(lambda x: f"{int(x)}" if pd.notna(x) else "")
         
-        def style_link(val):
+        def style_link_col(val, c, row):
             if pd.isna(val) or str(val).strip() in ['', 'False', 'nan']: return 'Không'
+            val_str = str(val).lower()
+            if 'http' not in val_str:
+                return 'Lỗi (Link Ẩn)'
+            if c == "Điểm danh":
+                tham_gia = str(row['Tham gia']).strip()
+                if tham_gia == '' or tham_gia == '0':
+                    return 'Lỗi (Trống Data)'
             return 'Có'
             
         def color_yes_no(val):
             if val == 'Có': return 'background-color: #d4edda; color: #155724;'
             if val == 'Không': return 'background-color: #f8d7da; color: #721c24;'
+            if 'Lỗi' in str(val): return 'background-color: #fff3cd; color: #856404; font-weight: bold;'
             return ''
             
         df_dept_display = df_dept.copy()
         df_dept_display.index = range(1, len(df_dept_display) + 1)
         for c in ["Điểm danh", "Bảng kiểm", "Báo cáo", "Video"]:
-            df_dept_display[c] = df_dept_display[c].apply(style_link)
+            # Need to pass original row 'Tham gia' value
+            df_dept_display[c] = df_dept.apply(lambda r: style_link_col(r[c], c, r), axis=1).values
             
         dept_styler = df_dept_display.style.map(color_yes_no, subset=["Điểm danh", "Bảng kiểm", "Báo cáo", "Video"])
             
