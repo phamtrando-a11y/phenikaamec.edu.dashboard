@@ -231,13 +231,8 @@ def load_data():
                     count_students = 0
                     passed_count = 0
                     
-                if has_link:
-                    df_sessions.at[idx, 'Số học viên tham gia'] = count_students
-                    df_sessions.at[idx, 'Số Học viên đạt'] = passed_count
-                else:
-                    if count_students > 0:
-                        df_sessions.at[idx, 'Số học viên tham gia'] = count_students
-                        df_sessions.at[idx, 'Số Học viên đạt'] = passed_count
+                df_sessions.at[idx, 'Số học viên tham gia'] = count_students
+                df_sessions.at[idx, 'Số Học viên đạt'] = passed_count
     
     if 'Họ và tên' in df_students.columns and 'Gốc' in df_students.columns:
         df_students['Họ Tên Đầy Đủ'] = df_students['Họ và tên'].fillna(df_students['Gốc'])
