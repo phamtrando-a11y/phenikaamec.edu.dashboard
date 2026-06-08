@@ -11,13 +11,13 @@ import unicodedata
 import datetime
 
 # Đường dẫn các file
-workspace_dir = "/Users/trando/Library/CloudStorage/GoogleDrive-daotao.bvdhphenikaa@gmail.com/Drive của tôi/1_Đào tạo/13. Sinh hoạt chuyên môn"
-main_excel_path = os.path.join(workspace_dir, "250903_Theo dõi cấp CME + Điểm danh_Bài giảng SHCM (Độ).xlsx")
+workspace_dir = "/Users/dotran/Library/CloudStorage/GoogleDrive-daotao.bvdhphenikaa@gmail.com/Drive của tôi/1_Đào tạo/13. Sinh hoạt chuyên môn"
+main_excel_path = os.path.join(workspace_dir, "250903_Theo dõi cấp CME + Điểm danh_Bài giảng SHCM (Độ)_unlocked.xlsx")
 temp_decrypted_path = os.path.join(workspace_dir, "temp_decrypted.xlsx")
 reg_folder = os.path.join(workspace_dir, "5.Đăng ký SHCM - Độ")
 json_output_path = os.path.join(workspace_dir, "Phenikaa_Dashboard_Package", "netlify-dashboard", "data.json")
 
-print("--- BƯỚC 1: GIẢI MÃ FILE EXCEL CHÍNH ---")
+print("--- BƯỚC 1: ĐỌC FILE EXCEL CHÍNH ---")
 try:
     decrypted_workbook = io.BytesIO()
     with open(main_excel_path, 'rb') as file:
@@ -29,11 +29,6 @@ try:
         f_out.write(decrypted_workbook.getvalue())
     print("Giải mã thành công file chính!")
 except Exception as e:
-    print(f"Lỗi giải mã file chính: {e}")
-    # Nếu file đã giải mã sẵn (không có mật khẩu)
-    if os.path.exists(main_excel_path):
-        import shutil
-        shutil.copyfile(main_excel_path, temp_decrypted_path)
         print("Đã copy file chính trực tiếp (không cần giải mã).")
 
 # Đọc danh sách sheet từ file chính để bảo toàn
@@ -235,7 +230,11 @@ def get_download_url(url):
     sheet_match = re.search(r'/spreadsheets/d/([a-zA-Z0-9-_]+)', url)
     if sheet_match:
         sp_id = sheet_match.group(1)
-        return f"https://docs.google.com/spreadsheets/d/{sp_id}/export?format=xlsx", "google_sheet"
+        res_key = ""
+        rk_match = re.search(r'(resourcekey=[a-zA-Z0-9-_]+)', url)
+        if rk_match:
+            res_key = "&" + rk_match.group(1)
+        return f"https://docs.google.com/spreadsheets/d/{sp_id}/export?format=xlsx{res_key}", "google_sheet"
     drive_match = re.search(r'/file/d/([a-zA-Z0-9-_]+)', url)
     if drive_match:
         file_id = drive_match.group(1)
@@ -353,6 +352,27 @@ for f in reg_files:
                     if 'gắn link' in normalize_text_std(col):
                         link_col = col
                         break
+            
+            # Khởi tạo openpyxl để lấy Link chìm
+            try:
+                wb_op = openpyxl.load_workbook(path, data_only=False)
+                ws_op = wb_op[sheet]
+                link_col_idx_op = -1
+                if header_idx + 1 <= ws_op.max_row:
+                    for i, cell_op in enumerate(ws_op[header_idx + 1]):
+                        if cell_op.value and isinstance(cell_op.value, str):
+                            c_norm = normalize_text_std(cell_op.value)
+                            if ('gắn link post test' in c_norm or 'link post test' in c_norm or 'post test' in c_norm) and 'có' not in c_norm and 'đúng form' not in c_norm:
+                                link_col_idx_op = i + 1
+                                break
+                    if link_col_idx_op == -1:
+                        for i, cell_op in enumerate(ws_op[header_idx + 1]):
+                            if cell_op.value and isinstance(cell_op.value, str) and 'gắn link' in normalize_text_std(cell_op.value):
+                                link_col_idx_op = i + 1
+                                break
+            except:
+                ws_op = None
+                link_col_idx_op = -1
                         
             for idx, row in df_plan.iterrows():
                 prog_name = str(row.get(prog_col, '')).strip() if prog_col else ''
@@ -361,6 +381,17 @@ for f in reg_files:
                     
                 link_val = row.get(link_col) if link_col else (row.iloc[21] if len(row) > 21 else None)
                 urls = get_urls_from_cell(link_val)
+                
+                # Bóc tách Link chìm từ openpyxl nếu Pandas không tìm thấy url
+                if not urls and ws_op is not None and link_col_idx_op != -1:
+                    excel_row = idx + header_idx + 2
+                    try:
+                        cell_op = ws_op.cell(row=excel_row, column=link_col_idx_op)
+                        if cell_op.hyperlink and cell_op.hyperlink.target:
+                            urls = get_urls_from_cell(cell_op.hyperlink.target)
+                    except:
+                        pass
+                        
                 if not urls:
                     continue
                 

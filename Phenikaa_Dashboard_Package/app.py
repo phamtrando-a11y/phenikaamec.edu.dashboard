@@ -193,7 +193,21 @@ def load_data():
     
     def is_passed(score):
         if pd.isna(score): return None
+        if isinstance(score, datetime.datetime) or isinstance(score, pd.Timestamp):
+            try: return (score.day / score.month) >= 0.8
+            except: return False
+            
         s = str(score).strip()
+        if '-' in s and ':' in s:
+            try:
+                dt = pd.to_datetime(s)
+                return (dt.day / dt.month) >= 0.8
+            except: pass
+            
+        if s.endswith('%'):
+            try: return float(s[:-1]) >= 80
+            except: return False
+            
         if '/' in s:
             try:
                 parts = s.split('/')
@@ -243,11 +257,22 @@ def load_data():
     
     def safe_float(s):
         try:
-            s = str(s).strip()
-            if '/' in s:
-                parts = s.split('/')
+            if isinstance(s, datetime.datetime) or isinstance(s, pd.Timestamp):
+                return (s.day / s.month) * 10
+                
+            s_str = str(s).strip()
+            if '-' in s_str and ':' in s_str:
+                dt = pd.to_datetime(s_str)
+                return (dt.day / dt.month) * 10
+                
+            if s_str.endswith('%'):
+                return float(s_str[:-1]) / 10 if float(s_str[:-1]) > 10 else float(s_str[:-1])
+                
+            if '/' in s_str:
+                parts = s_str.split('/')
                 return (float(parts[0]) / float(parts[1])) * 10
-            val = float(s)
+                
+            val = float(s_str)
             if val > 30000:
                 date_val = pd.to_datetime('1899-12-30') + pd.to_timedelta(val, 'D')
                 return (date_val.day / date_val.month) * 10
@@ -483,8 +508,8 @@ elif page == "Hoạt động khoa phòng":
         def style_link_col(val, c, row):
             if pd.isna(val) or str(val).strip() in ['', 'False', 'nan']: return 'Không'
             val_str = str(val).lower()
-            if 'http' not in val_str:
-                return 'Lỗi (Link Ẩn)'
+            if 'chưa' in val_str or 'không' in val_str or 'none' in val_str: return 'Không'
+            
             if c == "Điểm danh":
                 tham_gia = str(row['Tham gia']).strip()
                 if tham_gia == '' or tham_gia == '0':
