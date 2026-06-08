@@ -257,6 +257,24 @@ except Exception as e:
 
 # --- SIDEBAR MENU ---
 st.sidebar.title("📊 Phenikaa CME")
+
+if "google_credentials" in st.secrets:
+    if st.sidebar.button("🔄 Lấy dữ liệu học viên mới nhất"):
+        with st.spinner("Đang kết nối Google Drive và bóc tách dữ liệu... Vui lòng chờ 30s-1p..."):
+            try:
+                import google_drive_scraper
+                main_excel_id = "12FpcGGKs4LdijihdYjQnS2qdf3RQW4-W"
+                reg_folder_id = "1PqDmjmYzvy30CKG-iqdVSd2ibOBRDGO_"
+                creds_json = st.secrets["google_credentials"]
+                success = google_drive_scraper.run_scraper(creds_json, reg_folder_id, main_excel_id)
+                if success:
+                    st.cache_data.clear()
+                    st.sidebar.success("Cập nhật thành công! Đang tải lại...")
+                    st.rerun()
+            except Exception as e:
+                st.sidebar.error(f"Lỗi: {e}")
+
+st.sidebar.divider()
 page = st.sidebar.radio("Chọn chức năng:", ["Tổng quan", "Hoạt động khoa phòng", "Hoạt động đào tạo", "Đánh giá chỉ tiêu"])
 
 st.title(page)
