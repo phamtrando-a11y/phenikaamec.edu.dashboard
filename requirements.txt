@@ -1,0 +1,9 @@
+streamlit>=1.30.0
+pandas>=2.0.0
+plotly>=5.18.0
+openpyxl>=3.1.2
+dataframe-image>=0.2.2
+requests>=2.31.0
+PyGithub>=2.0.0
+lxml>=4.9.3
+Pillow>=10.0.0
