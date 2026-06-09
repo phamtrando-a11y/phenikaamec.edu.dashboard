@@ -57,10 +57,16 @@ def get_download_url(url):
         if rk_match:
             res_key = "&" + rk_match.group(1)
         return f"https://docs.google.com/spreadsheets/d/{sp_id}/export?format=xlsx{res_key}", "google_sheet"
+        
     drive_match = re.search(r'/file/d/([a-zA-Z0-9-_]+)', url)
     if drive_match:
         file_id = drive_match.group(1)
         return f"https://drive.google.com/uc?export=download&id={file_id}", "google_drive"
+        
+    if '1drv.ms' in url or 'sharepoint.com' in url:
+        dl_url = url + ('&download=1' if '?' in url else '?download=1')
+        return dl_url, "onedrive"
+        
     return None, None
 
 def find_header_and_data(df):
@@ -142,14 +148,44 @@ def run_scraper(creds_json, reg_folder_id, main_excel_id):
     )
     drive_service = build('drive', 'v3', credentials=creds)
 
-    print("--- BƯỚC 1: ĐỌC FILE EXCEL CHÍNH TỪ GOOGLE DRIVE ---")
-    request = drive_service.files().get_media(fileId=main_excel_id)
-    main_file_stream = io.BytesIO()
-    downloader = MediaIoBaseDownload(main_file_stream, request)
-    done = False
-    while done is False:
-        status, done = downloader.next_chunk()
-    main_file_stream.seek(0)
+    print("--- BƯỚC 1: ĐỌC FILE EXCEL CHÍNH TỪ GOOGLE DRIVE (KÈM CONVERT ĐỂ LẤY SMART CHIP) ---")
+    try:
+        # 1. Tạo bản sao tạm thời dưới định dạng Google Sheets để ép Google Drive render Smart Chips
+        file_metadata = {
+            'name': 'Temp_Dashboard_Sheet_For_Scraping',
+            'mimeType': 'application/vnd.google-apps.spreadsheet'
+        }
+        temp_sheet = drive_service.files().copy(fileId=main_excel_id, body=file_metadata).execute()
+        temp_id = temp_sheet['id']
+        
+        # 2. Export file Google Sheets tạm thời này ngược lại thành .xlsx
+        # Quá trình này sẽ ép Google Sheets chuyển đổi Smart Chips thành Hyperlink tiêu chuẩn của Excel
+        request = drive_service.files().export_media(
+            fileId=temp_id, 
+            mimeType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        main_file_stream = io.BytesIO()
+        downloader = MediaIoBaseDownload(main_file_stream, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+            
+        # 3. Xóa file tạm
+        try:
+            drive_service.files().delete(fileId=temp_id).execute()
+        except:
+            pass
+            
+        main_file_stream.seek(0)
+    except Exception as e:
+        print(f"Lỗi khi convert qua Google Sheets, fallback về tải gốc: {e}")
+        request = drive_service.files().get_media(fileId=main_excel_id)
+        main_file_stream = io.BytesIO()
+        downloader = MediaIoBaseDownload(main_file_stream, request)
+        done = False
+        while done is False:
+            status, done = downloader.next_chunk()
+        main_file_stream.seek(0)
     
     # Read main df_sessions
     df_sessions = pd.read_excel(main_file_stream, sheet_name="SHCM - Độ")
@@ -279,7 +315,8 @@ def run_scraper(creds_json, reg_folder_id, main_excel_id):
                         dl_url, url_type = get_download_url(url)
                         if dl_url:
                             try:
-                                resp = requests.get(dl_url, timeout=20)
+                                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+                                resp = requests.get(dl_url, headers=headers, timeout=20)
                                 if resp.status_code == 200:
                                     df_dl = pd.read_excel(io.BytesIO(resp.content))
                                     link_cache[url] = df_dl
@@ -325,6 +362,18 @@ def run_scraper(creds_json, reg_folder_id, main_excel_id):
     print("--- BƯỚC 2.5: BÓC TÁCH LINK TỪ FILE CHÍNH ---")
     ws_main = wb["SHCM - Độ"] if "SHCM - Độ" in wb.sheetnames else wb.worksheets[0]
     
+    try:
+        sheets_service = build('sheets', 'v4', credentials=creds)
+        sheet_data = sheets_service.spreadsheets().get(
+            spreadsheetId=main_excel_id, 
+            includeGridData=True, 
+            ranges=["SHCM - Độ"]
+        ).execute()
+        grid_data = sheet_data.get('sheets', [{}])[0].get('data', [{}])[0].get('rowData', [])
+    except Exception as e:
+        print(f"Lỗi Sheets API: {e}")
+        grid_data = []
+    
     prog_col_idx = -1
     link_col_idx = -1
     unit_col_idx = -1
@@ -349,10 +398,25 @@ def run_scraper(creds_json, reg_folder_id, main_excel_id):
             
             link_cell = ws_main.cell(row=row_idx, column=link_col_idx)
             urls = []
-            if link_cell.hyperlink and link_cell.hyperlink.target:
-                urls = get_urls_from_cell(link_cell.hyperlink.target, drive_service)
-            elif link_cell.value:
-                urls = get_urls_from_cell(link_cell.value, drive_service)
+            
+            api_url = None
+            if grid_data and (row_idx - 1) < len(grid_data):
+                row_data = grid_data[row_idx - 1].get('values', [])
+                if (link_col_idx - 1) < len(row_data):
+                    cell_data = row_data[link_col_idx - 1]
+                    if 'hyperlink' in cell_data:
+                        api_url = cell_data['hyperlink']
+                    elif 'formattedValue' in cell_data and 'http' in str(cell_data['formattedValue']):
+                        api_url = cell_data['formattedValue']
+                        
+            if api_url:
+                urls = get_urls_from_cell(api_url, drive_service)
+                
+            if not urls:
+                if link_cell.hyperlink and link_cell.hyperlink.target:
+                    urls = get_urls_from_cell(link_cell.hyperlink.target, drive_service)
+                elif link_cell.value:
+                    urls = get_urls_from_cell(link_cell.value, drive_service)
                 
             if not urls: continue
             url = urls[-1]
@@ -361,7 +425,8 @@ def run_scraper(creds_json, reg_folder_id, main_excel_id):
                 dl_url, url_type = get_download_url(url)
                 if dl_url:
                     try:
-                        resp = requests.get(dl_url, timeout=20)
+                        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+                                resp = requests.get(dl_url, headers=headers, timeout=20)
                         if resp.status_code == 200:
                             df_dl = pd.read_excel(io.BytesIO(resp.content))
                             link_cache[url] = df_dl
