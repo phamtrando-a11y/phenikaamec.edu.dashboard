@@ -426,7 +426,7 @@ def run_scraper(creds_json, reg_folder_id, main_excel_id):
                 if dl_url:
                     try:
                         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
-                                resp = requests.get(dl_url, headers=headers, timeout=20)
+                        resp = requests.get(dl_url, headers=headers, timeout=20)
                         if resp.status_code == 200:
                             df_dl = pd.read_excel(io.BytesIO(resp.content))
                             link_cache[url] = df_dl
